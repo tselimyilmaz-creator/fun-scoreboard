@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Fun Calculator, Roast & Scoreboard</title>
+  <style>
+    body{margin:0;min-height:100vh;font-family:system-ui,sans-serif;background:radial-gradient(circle at top,#1d283a 0,#020617 45%,#000 100%);color:#e5e7eb;display:flex;align-items:center;justify-content:center}
+    .page{max-width:1100px;width:100%;padding:32px 16px}
+    header{text-align:center;margin-bottom:24px}
+    header h1{margin:0 0 8px;font-size:2rem;background:linear-gradient(120deg,#38bdf8,#a855f7,#f97316);-webkit-background-clip:text;color:transparent}
+    header p{margin:0;color:#9ca3af}
+    main{display:grid;grid-template-columns:2fr 1.4fr;gap:18px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+    .card{background:radial-gradient(circle at top left,#1f2937 0,#020617 55%);border-radius:16px;padding:18px 16px 20px;box-shadow:0 18px 40px rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.18)}
+    .card h2{margin:0 0 14px;font-size:1.1rem}
+    .row{display:grid;grid-template-columns:1.4fr .7fr 1.4fr;gap:8px;margin-bottom:12px}
+    input,select{background:rgba(15,23,42,.95);border-radius:10px;border:1px solid rgba(148,163,184,.4);color:#e5e7eb;padding:8px 9px;font-size:.95rem;outline:none;width:100%}
+    input::placeholder{color:rgba(148,163,184,.8)}
+    input:focus,select:focus{border-color:#38bdf8;box-shadow:0 0 0 1px rgba(56,189,248,.45)}
+    .btn{margin-top:8px;padding:8px 14px;border-radius:999px;border:none;cursor:pointer;font-weight:600;font-size:.9rem}
+    .btn.calc{background:linear-gradient(135deg,#38bdf8,#0ea5e9);color:#0b1220}
+    .btn.roast{background:linear-gradient(135deg,#f97316,#f97373);color:#0b1220}
+    .btn.refresh{background:rgba(56,189,248,.12);color:#bae6fd;border:1px solid rgba(56,189,248,.6);margin-left:6px}
+    .result{margin-top:12px;padding:9px 10px;border-radius:10px;font-size:.9rem;background:rgba(148,163,184,.12);border:1px solid rgba(148,163,184,.6)}
+    table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:6px}
+    th,td{padding:6px 8px;text-align:left}
+    th{font-weight:600;border-bottom:1px solid rgba(148,163,184,.6)}
+    tr:nth-child(even) td{background:rgba(15,23,42,.7)}
+    .muted{color:#9ca3af;font-size:.85rem;margin-top:8px}
+    footer{margin-top:24px;text-align:center;color:#9ca3af;font-size:.8rem}
+    @media (max-width:800px){main{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Fun Calculator, Roast & Scoreboard</h1>
+      <p>Hesapla, şaka yap (hafif), skorları ortak tabloda topla.</p>
+    </header>
+
+    <main>
+      <div class="cards">
+        <section class="card">
+          <h2>Calculator</h2>
+          <div class="row">
+            <input id="num1" type="text" placeholder="1. sayı" />
+            <select id="op">
+              <option value="+">+</option>
+              <option value="-">-</option>
+              <option value="*">*</option>
+              <option value="/">/</option>
+            </select>
+            <input id="num2" type="text" placeholder="2. sayı" />
+          </div>
+          <button class="btn calc" onclick="doCalc()">Hesapla</button>
+          <div id="calcResult" class="result" style="display:none;"></div>
+        </section>
+
+        <section class="card">
+          <h2>Roast (hafif şaka)</h2>
+          <input id="friend" type="text" placeholder="Arkadaş adı" />
+          <button class="btn roast" onclick="doRoast()">Roast!</button>
+          <div id="roastResult" class="result" style="display:none;"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Ortak Scoreboard</h2>
+
+        <input id="scoreName" type="text" placeholder="İsim (max 24)" maxlength="24" />
+        <input id="scoreValue" type="number" placeholder="Skor (sayı)" />
+        <div>
+          <button class="btn calc" onclick="addScore()">Skoru ekle</button>
+          <button class="btn refresh" onclick="refreshScores()">Yenile</button>
+        </div>
+
+        <div class="muted" id="status"></div>
+
+        <div class="result" style="margin-top:10px;">
+          <table>
+            <thead>
+              <tr><th>#</th><th>İsim</th><th>Skor</th><th>Zaman</th></tr>
+            </thead>
+            <tbody id="scoreTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="muted">Not: Herkes skor ekleyebilir.</div>
+      </section>
+    </main>
+
+    <footer>Online scoreboard: Supabase + statik site</footer>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    const SUPABASE_URL = https://dtktcizdhpgewkpmezu.supabase.co;
+    const SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0a3RjaXpkaHBnZXdrcG1lenp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2Njg1MDcsImV4cCI6MjA4OTI0NDUwN30.T4rEKNFyIr0rAf3huVyJicZeXwTTKU9XTS1iggNnBCA;
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const roasts = [
+      "Hey NAME, hesap makinesi bile senden yoruluyor.",
+      "NAME, senin matematik Internet Explorer gibi… çalışıyor ama kimse etkilenmiyor.",
+      "NAME, beyin hücresi para olsaydı, bu hesap makinesi senden zengin olurdu.",
+      "NAME, sen virgülleri benden daha çok kaybediyorsun.",
+      "NAME, sıfıra bölmeyi mi deniyorsun yoksa bu kaos doğal mı?"
+    ];
+
+    const statusEl = document.getElementById("status");
+    const tbody = document.getElementById("scoreTableBody");
+
+    function setStatus(msg) { statusEl.textContent = msg || ""; }
+
+    window.doCalc = function () {
+      const a = parseFloat(document.getElementById("num1").value);
+      const b = parseFloat(document.getElementById("num2").value);
+      const op = document.getElementById("op").value;
+      const box = document.getElementById("calcResult");
+
+      if (Number.isNaN(a) || Number.isNaN(b)) box.textContent = "Lütfen sayı gir.";
+      else if (op === "/" && b === 0) box.textContent = "Sıfıra bölünmez.";
+      else {
+        let r;
+        if (op === "+") r = a + b;
+        else if (op === "-") r = a - b;
+        else if (op === "*") r = a * b;
+        else r = a / b;
+        box.textContent = "Sonuç: " + r;
+      }
+      box.style.display = "block";
+    };
+
+    window.doRoast = function () {
+      const nameInput = document.getElementById("friend").value.trim() || "arkadaşın";
+      const box = document.getElementById("roastResult");
+      const template = roasts[Math.floor(Math.random() * roasts.length)];
+      box.textContent = template.replace(/NAME/g, nameInput);
+      box.style.display = "block";
+    };
+
+    function formatTime(iso) {
+      try { return new Date(iso).toLocaleString(); } catch { return ""; }
+    }
+
+    window.refreshScores = async function () {
+      setStatus("Skorlar yükleniyor...");
+      const { data, error } = await supabase
+        .from("scores")
+        .select("name,score,created_at")
+        .order("score", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        setStatus("Hata: " + error.message);
+        return;
+      }
+
+      tbody.innerHTML = "";
+      data.forEach((row, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(row.name)}</td>
+          <td>${row.score}</td>
+          <td>${formatTime(row.created_at)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      setStatus(`Yüklendi. Top ${data.length} skor gösteriliyor.`);
+    };
+
+    window.addScore = async function () {
+      const name = (document.getElementById("scoreName").value || "").trim();
+      const scoreText = document.getElementById("scoreValue").value;
+      const score = Number(scoreText);
+
+      if (!name) return alert("İsim gir.");
+      if (!Number.isFinite(score)) return alert("Skor sayı olmalı.");
+
+      setStatus("Skor ekleniyor...");
+      const { error } = await supabase.from("scores").insert([{ name, score }]);
+      if (error) {
+        setStatus("Hata: " + error.message);
+        return;
+      }
+
+      document.getElementById("scoreName").value = "";
+      document.getElementById("scoreValue").value = "";
+      await window.refreshScores();
+    };
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    window.refreshScores();
+  </script>
+</body>
+</html>
